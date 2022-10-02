@@ -1,0 +1,4 @@
+Encoder:
+    Trainable params Encoder block: 3.150.336
+    Inference Time FAST: 0.00296
+    Inference Time Naive: 0.00431
