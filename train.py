@@ -36,7 +36,7 @@ def validate(model, loader, config):
 
     avg_loss , avg_accuracy = av.get_avg()
     if avg_loss < best_val_loss:
-        best_loss = avg_loss
+        best_val_loss = avg_loss
         torch.save(model.state_dict(), config.save_path+f"/{avg_loss:.3f}.pth")
 
     model.train()
@@ -62,7 +62,7 @@ def train_epoch(model, train_loader, val_loader, optimizer, config):
 
         if batch_idx % config.print_freq == 0:
             avg_loss, avg_accuracy = av.get_avg()
-            print(f"[{batch_idx}/{len(train_loader)}] Loss: {loss.item():.3f} ({avg_loss:.3f}, Accuracy: {accuracy:.3f} ({avg_accuracy}))")
+            print(f"[{batch_idx}/{len(train_loader)}] Loss: {loss.item():.3f} ({avg_loss:.3f}), Accuracy: {accuracy:.3f} ({avg_accuracy:.3f}))")
         wandb.log({"loss": loss.item(), "lr": opitmizer.optimizer.param_groups[0]["lr"], "accuracy_batch": accuracy, "ppl": torch.exp(loss).item()})
     
         if batch_idx % config.validate_every == 0 and batch_idx != 0:
@@ -85,8 +85,9 @@ class Scheduler():
         self.optimizer = optimizer
         self.hidden_size = config.hidden_size
         self.warmup_steps = config.warmup_steps
+        self.lr_scale = config.lr_scale
 
-        self.steps = 0 
+        self.n_steps = 0 
     
     def zero_grad(self):
         self.optimizer.zero_grad()
@@ -96,16 +97,10 @@ class Scheduler():
         self.optimizer.step()
 
     def update_learning_rate(self):
-        self.n_steps = 1
-        lr = (self.hidden_size **-0.5) * min((self.n_steps**-0.5), (self.n_steps * self.warmup_steps** (-1.5)))
-
+        self.n_steps += 1
+        lr = self.lr_scale * (self.hidden_size **-0.5) * min((self.n_steps**-0.5), (self.n_steps * self.warmup_steps** (-1.5)))
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = lr
-
-    
-# TODO Implement validation
-# TODO Implement Model saving
-
 
 if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained("rossanez/t5-small-finetuned-de-en-lr2e-4")
@@ -122,8 +117,8 @@ if __name__ == "__main__":
     opitmizer = Scheduler(Adam(model.parameters(), betas=(0.9,0.98), eps= 10e-9), config)
 
     Dataset = Wmt14Handler(tokenizer, config, "de-en").get_wmt14()
-    train_loader = DataLoader(Dataset["train"], batch_size= config.batch_size, shuffle= config.shuffle)
-    val_loader = DataLoader(Dataset["val"], batch_size= config.batch_size, shuffle= config.shuffle)
+    train_loader = DataLoader(Dataset, batch_size= config.batch_size, shuffle= config.shuffle)
+    val_loader = DataLoader(Dataset, batch_size= config.batch_size, shuffle= config.shuffle)
     
     best_val_loss = 1e10
     train(model, train_loader,val_loader, opitmizer, config)
