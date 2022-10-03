@@ -11,7 +11,10 @@
     "pad_idx": 0,
     
     "batch_size": 30,
+    "train_epochs":3,
     "shuffle": true,
     "warmup_steps": 4000,
-    "print_freq": 20
+    "print_freq": 100,
+    "validate_every": 2000,
+    "save_path": "results"
 }

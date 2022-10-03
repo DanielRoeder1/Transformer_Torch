@@ -116,7 +116,15 @@ class EmbeddingBlock(nn.Module):
         embeddings = token_embeddings + position_embeddings
         embeddings = self.drop(embeddings)
         return embeddings
-        
+
+
+def some_method():
+    x = 10
+    some_other_method(x)
+    print(x)
+
+def some_other_method(x):
+    x = 1 
 
 if __name__ == "__main__":
     # We are using this wmt tokenizer as it shares a vocab for english and german
@@ -128,11 +136,19 @@ if __name__ == "__main__":
 
     transformer = Transformer(config)
 
-    out = tokenizer(["A test src sentence", "Ein Test source Satz"], add_special_tokens= False, max_length= config.seq_len, padding= "max_length", return_token_type_ids= False, return_attention_mask= False, return_tensors="pt")
-    src = out.input_ids[0].unsqueeze(0)
-    trgt = torch.cat((torch.Tensor([tokenizer.bos_token_id]).unsqueeze(0).long(), out.input_ids[1].unsqueeze(0)), dim = 1)
-    trgt = trgt[:,:-1]
+    out = tokenizer(["A test src sentence", "Another test sentence"], text_target =["Ein Test source Satz", "Ein weiterer test Satz"], add_special_tokens= False, max_length= config.seq_len, padding= "max_length", return_token_type_ids= False, return_attention_mask= False, return_tensors="pt")
+    src = out["input_ids"]
+    trgt_in = out["labels"]
+    trgt_label = out["labels"]
 
-    output = transformer(src, trgt)
+    # trgt = torch.cat((torch.Tensor([tokenizer.bos_token_id]).unsqueeze(0).long(), out.input_ids[1].unsqueeze(0)), dim = 1)
+    # trgt_in = trgt[:,:-1]
+    # trgt_label = trgt[:,1:]
 
+    output = transformer(src, trgt_in)
+    greedy_prediction = output.argmax(2)
+    accuracy = (greedy_prediction.eq(trgt_label).masked_select(trgt_label != config.pad_idx).sum() / (trgt_label != config.pad_idx).sum()).item()
+
+    print(accuracy)
+    some_method()
     print(f"Trainable parameters Transformer: {get_praram_count(transformer)}")
