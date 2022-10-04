@@ -23,3 +23,8 @@ class AverageMeter():
         self.count += count
     def get_avg(self):
         return self.loss / self.count, self.accuracy / self.count
+
+class ConfigObject(object):
+    def __init__(self, config_dict) -> None:
+        for key in config_dict:
+            setattr(self, key, config_dict[key])

@@ -5,10 +5,11 @@ from torch.optim import Adam
 from torch.nn.functional import cross_entropy
 import wandb
 import torch
+import json
 
 from data import Wmt14Handler
 from model import Transformer
-from utils import get_time, AverageMeter
+from utils import ConfigObject, get_time, AverageMeter
 
 def train(model, train_loader, val_loader, optimizer, config):
     for i in range(config.train_epochs):
@@ -67,9 +68,10 @@ def train_epoch(model, train_loader, val_loader, optimizer, config):
         
         if batch_idx % config.log_freq == 0:
             label_txt = tokenizer.batch_decode(trgt_label[:10], skip_special_tokens=True)
+            input_txt = tokenizer.batch_decode(trgt_input[:10], skip_special_tokens=True)
             pred_txt = tokenizer.batch_decode(pred.argmax(2)[:10],skip_special_tokens=True)
-            table_rows = [list(data)+ [loss.item()] + [accuracy] for data in zip(pred_txt, label_txt)]
-            wandb.log({"outputs": wandb.Table(columns=["pred", "gt", "loss_", "accuracy_"], rows = table_rows)})
+            table_rows = [list(data)+ [loss.item()] + [accuracy] for data in zip(input_txt, pred_txt, label_txt)]
+            wandb.log({"outputs": wandb.Table(columns=["input","pred", "gt", "loss_", "accuracy_"], rows = table_rows)})
 
         wandb.log({"loss": loss.item(), "lr": opitmizer.optimizer.param_groups[0]["lr"], "accuracy_batch": accuracy, "ppl": torch.exp(loss).item()})
 
@@ -111,16 +113,21 @@ class Scheduler():
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = lr
 
+    
 if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained("rossanez/t5-small-finetuned-de-en-lr2e-4")
     tokenizer.add_special_tokens({"bos_token": "<start>"})
 
-    config = PretrainedConfig.from_json_file("config.json")
+    #config = PretrainedConfig.from_json_file("config.json")
+    with open("config.json","r") as f:
+        config_dict = json.load(f)
+    config = ConfigObject(config_dict)
     # Tokenizer.vocab_size is not updating when adding new tokens 
     config.update({"vocab_size": len(tokenizer), "pad_idx": tokenizer.pad_token_id})
 
-    wandb.init(project = "Transformer_training", config = config.to_dict())
     model = Transformer(config).cuda()
+
+    wandb.init(project = "Transformer_training", config = config_dict)
     wandb.watch(model, log="all")
 
     opitmizer = Scheduler(Adam(model.parameters(), betas=(0.9,0.98), eps= 10e-9), config)
