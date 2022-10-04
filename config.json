@@ -10,12 +10,14 @@
     "vocab_size" : 0,
     "pad_idx": 0,
     "warmup_steps": 4000,
-    "lr_scale": 2,
+    "lr_scale": 1.4,
     
-    "batch_size": 30,
-    "train_epochs":3,
+    "batch_size": 2,
+    "train_epochs":1,
     "shuffle": true,
-    "print_freq": 100,
+    "print_freq": 20,
+    "log_freq": 100,
     "validate_every": 2000,
-    "save_path": "results"
+    "save_path": "results",
+    "best_val_loss": 1e10
 }

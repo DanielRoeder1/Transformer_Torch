@@ -35,9 +35,9 @@ def validate(model, loader, config):
         av.update(loss.item(), accuracy)
 
     avg_loss , avg_accuracy = av.get_avg()
-    if avg_loss < best_val_loss:
-        best_val_loss = avg_loss
-        torch.save(model.state_dict(), config.save_path+f"/{avg_loss:.3f}.pth")
+    if avg_loss < config.best_val_loss:
+        config.best_val_loss = avg_loss
+        torch.save(model.state_dict(), config.save_path+f"/{avg_loss:.2f}.pth")
 
     model.train()
     print(f"[{get_time()}] Finished validation: Loss {avg_loss}, Accuracy {avg_accuracy}")
@@ -54,6 +54,7 @@ def train_epoch(model, train_loader, val_loader, optimizer, config):
 
         optimizer.zero_grad()
         pred = model(src_input, trgt_input)
+
         # Permute to [batch, num_classes, seq_len]
         loss, accuracy = calc_loss(pred, trgt_label, config.pad_idx)
         av.update(loss.item(), accuracy)
@@ -63,7 +64,15 @@ def train_epoch(model, train_loader, val_loader, optimizer, config):
         if batch_idx % config.print_freq == 0:
             avg_loss, avg_accuracy = av.get_avg()
             print(f"[{batch_idx}/{len(train_loader)}] Loss: {loss.item():.3f} ({avg_loss:.3f}), Accuracy: {accuracy:.3f} ({avg_accuracy:.3f}))")
+        
+        if batch_idx % config.log_freq == 0:
+            label_txt = tokenizer.batch_decode(trgt_label[:10], skip_special_tokens=True)
+            pred_txt = tokenizer.batch_decode(pred.argmax(2)[:10],skip_special_tokens=True)
+            table_rows = [list(data)+ [loss.item()] + [accuracy] for data in zip(pred_txt, label_txt)]
+            wandb.log({"outputs": wandb.Table(columns=["pred", "gt", "loss_", "accuracy_"], rows = table_rows)})
+
         wandb.log({"loss": loss.item(), "lr": opitmizer.optimizer.param_groups[0]["lr"], "accuracy_batch": accuracy, "ppl": torch.exp(loss).item()})
+
     
         if batch_idx % config.validate_every == 0 and batch_idx != 0:
             validate(model, val_loader, config)
@@ -112,15 +121,14 @@ if __name__ == "__main__":
 
     wandb.init(project = "Transformer_training", config = config.to_dict())
     model = Transformer(config).cuda()
-    wandb.watch(model)
+    wandb.watch(model, log="all")
 
     opitmizer = Scheduler(Adam(model.parameters(), betas=(0.9,0.98), eps= 10e-9), config)
 
     Dataset = Wmt14Handler(tokenizer, config, "de-en").get_wmt14()
-    train_loader = DataLoader(Dataset, batch_size= config.batch_size, shuffle= config.shuffle)
-    val_loader = DataLoader(Dataset, batch_size= config.batch_size, shuffle= config.shuffle)
-    
-    best_val_loss = 1e10
+    train_loader = DataLoader(Dataset["train"], batch_size= config.batch_size, shuffle= config.shuffle)
+    val_loader = DataLoader(Dataset["validation"], batch_size= config.batch_size, shuffle= config.shuffle)
+
     train(model, train_loader,val_loader, opitmizer, config)
 
 
