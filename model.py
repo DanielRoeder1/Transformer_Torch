@@ -1,12 +1,10 @@
-from lib2to3.pgen2 import token
-from turtle import forward
 import torch
 from numpy import sqrt
 from torch import nn
-from transformers import PretrainedConfig, AutoTokenizer
 
-from utils import get_praram_count
+from utils import get_praram_count, ConfigObject
 from Layer import MultiHeadAttentionFAST, FeedForward, PositionalEmbedding
+from data import get_Tokenizer
 
 
 class Transformer(nn.Module):
@@ -117,38 +115,22 @@ class EmbeddingBlock(nn.Module):
         embeddings = self.drop(embeddings)
         return embeddings
 
-
-def some_method():
-    x = 10
-    some_other_method(x)
-    print(x)
-
-def some_other_method(x):
-    x = 1 
-
 if __name__ == "__main__":
-    # We are using this wmt tokenizer as it shares a vocab for english and german
-    tokenizer = AutoTokenizer.from_pretrained("rossanez/t5-small-finetuned-de-en-lr2e-4")
-    tokenizer.add_special_tokens({"bos_token": "<start>"})
-
-    config = PretrainedConfig.from_json_file("config.json")
+    tokenizer = get_Tokenizer()
+    config = ConfigObject("config.json")
     config.update({"vocab_size": len(tokenizer), "pad_idx": tokenizer.pad_token_id})
-
     transformer = Transformer(config)
 
-    out = tokenizer(["A test src sentence", "Another test sentence"], text_target =["Ein Test source Satz", "Ein weiterer test Satz"], add_special_tokens= False, max_length= config.seq_len, padding= "max_length", return_token_type_ids= False, return_attention_mask= False, return_tensors="pt")
+    out = tokenizer(["Wir waren im Park am Sonntag", "Ich war gestern in der Bahn"], text_target =["We were in the park on Sunday", "I was in the train yesterday"], add_special_tokens= True, max_length= config.seq_len+1, padding= "max_length", return_token_type_ids= False, return_attention_mask= False, return_tensors="pt")
     src = out["input_ids"]
-    trgt_in = out["labels"]
-    trgt_label = out["labels"]
+    trgt = out["labels"]
+    src = src[:,:-1]
+    trgt_in = trgt[:,:-1]
+    trgt_label = trgt[:,1:]
 
-    # trgt = torch.cat((torch.Tensor([tokenizer.bos_token_id]).unsqueeze(0).long(), out.input_ids[1].unsqueeze(0)), dim = 1)
-    # trgt_in = trgt[:,:-1]
-    # trgt_label = trgt[:,1:]
-
+    transformer.eval()
     output = transformer(src, trgt_in)
-    greedy_prediction = output.argmax(2)
-    accuracy = (greedy_prediction.eq(trgt_label).masked_select(trgt_label != config.pad_idx).sum() / (trgt_label != config.pad_idx).sum()).item()
+    out_txt = tokenizer.batch_decode(output.argmax(-1))
+    out_label = tokenizer.batch_decode(trgt_label)
 
-    print(accuracy)
-    some_method()
     print(f"Trainable parameters Transformer: {get_praram_count(transformer)}")

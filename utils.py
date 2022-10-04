@@ -1,5 +1,6 @@
 import numpy as np
 import time
+import json
 
 def get_praram_count(model) -> int:
     """
@@ -25,6 +26,12 @@ class AverageMeter():
         return self.loss / self.count, self.accuracy / self.count
 
 class ConfigObject(object):
-    def __init__(self, config_dict) -> None:
-        for key in config_dict:
-            setattr(self, key, config_dict[key])
+    """
+    Creats Class object based on json / dict
+    """
+    def __init__(self, config_path) -> None:
+        config_dict = json.load(open(config_path, "r"))
+        self.update(config_dict)
+    def update(self, input_dict):
+        for key in input_dict:
+            setattr(self, key, input_dict[key])

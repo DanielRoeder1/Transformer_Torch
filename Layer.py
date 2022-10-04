@@ -28,9 +28,15 @@ class MultiHeadAttentionFAST(nn.Module):
         V = self.split_heads(self.v_layer(kv if torch.is_tensor(kv) else x))
 
         scaled_attention_scores = torch.matmul(Q,K) / sqrt(Q.size(-1))  # [batch, num_heads,seq_len, seq_len]
+        #print(f"Attention scores before masking {scaled_attention_scores}")
         scaled_attention_scores = scaled_attention_scores.masked_fill(mask == 0, float("-inf"))
+        #print(f"Attention scores after masking {scaled_attention_scores}")
         
         attention_weights = nn.functional.softmax(scaled_attention_scores, dim= -1)
+       # print(f"Mask {mask}")
+        #print(f"Shape attention weigths {attention_weights.shape}")
+        #print(f"attention weights {attention_weights}")
+        #print("########")
         attention_results = self.combine_heads(torch.matmul(attention_weights, V)) # [batch, num_heads, seq_len, head_dim] -> [batch, seq_len, embed_dim]
         attention_results = self.final_lin(attention_results)
         attention_results = self.drop(attention_results)
@@ -44,56 +50,6 @@ class MultiHeadAttentionFAST(nn.Module):
         x = x.permute([0,2,1,3])
         a,b = x.shape[-2:]
         return torch.reshape(x, x.shape[:-2]+(a*b,))
-
-
-
-class MultiHeadAttention(nn.Module):
-    """
-    Naive implementation thats uses seperate linear layer for each head
-    """
-    def __init__(self, config, masked_attention = False) -> None:
-        super().__init__()
-        head_dim = config.hidden_size // config.num_attention_heads
-        self.attention_heads = nn.ModuleList([AttentionHead(config.hidden_size, head_dim, masked_attention) for i in range(config.num_attention_heads)])
-        self.lin = nn.Linear(config.hidden_size, config.hidden_size, bias = False)
-        self.drop = nn.Dropout(config.dropout_prob)
-
-    def forward(self, hidden_state):
-        attention_output = torch.cat([head(hidden_state) for head in self.attention_heads], dim = -1)
-        attention_output = self.lin(attention_output)
-        return self.drop(attention_output)
-
-
-class AttentionHead(nn.Module):
-    """
-    The original paper does not use a bias term when projecting the hidden state into q,k,v
-    """
-    def __init__(self, embed_dim, head_dim, masked_attention) -> None:
-        super().__init__()
-        self.q_layer = nn.Linear(embed_dim, head_dim, bias= False)
-        self.k_layer = nn.Linear(embed_dim, head_dim, bias= False)
-        self.v_layer = nn.Linear(embed_dim, head_dim, bias= False)
-
-        if masked_attention:
-            self.register_buffer("mask", torch.tril(torch.ones(config.seq_len, config.seq_len)).view(1,1,config.seq_len, config.seq_len))
-
-        self.masked_attention = masked_attention
-    
-    def forward(self, hidden_state):
-        """
-        Implements scaled dot product attention
-        """
-        query = self.q_layer(hidden_state)
-        key = self.k_layer(hidden_state).transpose(1,2)
-        value = self.v_layer(hidden_state)
-
-        scaled_attention_scores = torch.bmm(query, key) / sqrt(query.size(-1))
-        if self.masked_attention:
-            scaled_attention_scores = scaled_attention_scores.masked_fill(self.mask == 0, float("-inf"))
-
-        attention_weights = nn.functional.softmax(scaled_attention_scores, dim= -1)
-        
-        return attention_weights @ value
 
 class FeedForward(nn.Module):
     """
@@ -130,5 +86,4 @@ class PositionalEmbedding(nn.Module):
         self.register_buffer("pos_enc", torch.from_numpy(angles).unsqueeze(0).float())
 
     def forward(self):
-        return self.pos_enc
-    
+        return self.pos_enc  

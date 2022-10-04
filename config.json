@@ -1,16 +1,16 @@
 {
-    "num_encoder_blocks": 2,
-    "num_decoder_blocks": 2,
+    "num_encoder_blocks": 5,
+    "num_decoder_blocks": 5,
     "hidden_size": 512,
-    "num_attention_heads": 8,
+    "num_attention_heads": 1,
     "intermediate_dim": 2048,
     "dropout_prob": 0.1,
 
-    "seq_len": 40,
+    "seq_len": 10,
     "vocab_size" : 0,
     "pad_idx": 0,
     "warmup_steps": 4000,
-    "lr_scale": 1.4,
+    "lr_scale": 1,
     
     "batch_size": 2,
     "train_epochs":1,

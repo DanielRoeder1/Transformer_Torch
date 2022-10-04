@@ -1,13 +1,10 @@
-import enum
-from transformers import AutoTokenizer, PretrainedConfig
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 from torch.nn.functional import cross_entropy
 import wandb
 import torch
-import json
 
-from data import Wmt14Handler
+from data import Wmt14Handler, get_Tokenizer
 from model import Transformer
 from utils import ConfigObject, get_time, AverageMeter
 
@@ -66,21 +63,22 @@ def train_epoch(model, train_loader, val_loader, optimizer, config):
             avg_loss, avg_accuracy = av.get_avg()
             print(f"[{batch_idx}/{len(train_loader)}] Loss: {loss.item():.3f} ({avg_loss:.3f}), Accuracy: {accuracy:.3f} ({avg_accuracy:.3f}))")
         
-        if batch_idx % config.log_freq == 0:
+        if batch_idx % config.log_freq == 0:   
             label_txt = tokenizer.batch_decode(trgt_label[:10], skip_special_tokens=True)
-            input_txt = tokenizer.batch_decode(trgt_input[:10], skip_special_tokens=True)
+            input_txt = tokenizer.batch_decode(src_input[:10], skip_special_tokens=True)
             pred_txt = tokenizer.batch_decode(pred.argmax(2)[:10],skip_special_tokens=True)
             table_rows = [list(data)+ [loss.item()] + [accuracy] for data in zip(input_txt, pred_txt, label_txt)]
             wandb.log({"outputs": wandb.Table(columns=["input","pred", "gt", "loss_", "accuracy_"], rows = table_rows)})
 
         wandb.log({"loss": loss.item(), "lr": opitmizer.optimizer.param_groups[0]["lr"], "accuracy_batch": accuracy, "ppl": torch.exp(loss).item()})
-
     
         if batch_idx % config.validate_every == 0 and batch_idx != 0:
             validate(model, val_loader, config)
 
 def calc_loss(pred, target, pad_idx):
     greedy_prediction = pred.argmax(2)
+    print(f"pred ids {greedy_prediction}")
+    print(f"Target ids {target}")
     # Num_words_correct / Num_words not padding in batch
     accuracy = (greedy_prediction.eq(target).masked_select(target != config.pad_idx).sum() / (target != config.pad_idx).sum()).item()
     loss = cross_entropy(pred.permute([0,2,1]), target, ignore_index= pad_idx)
@@ -115,28 +113,16 @@ class Scheduler():
 
     
 if __name__ == "__main__":
-    tokenizer = AutoTokenizer.from_pretrained("rossanez/t5-small-finetuned-de-en-lr2e-4")
-    tokenizer.add_special_tokens({"bos_token": "<start>"})
-
-    #config = PretrainedConfig.from_json_file("config.json")
-    with open("config.json","r") as f:
-        config_dict = json.load(f)
-    config = ConfigObject(config_dict)
-    # Tokenizer.vocab_size is not updating when adding new tokens 
-    config.update({"vocab_size": len(tokenizer), "pad_idx": tokenizer.pad_token_id})
-
+    tokenizer = get_Tokenizer()
+    config = ConfigObject("config.json")
+    config.update({"vocab_size": len(tokenizer), "pad_idx": tokenizer.pad_token_id}) # Tokenizer.vocab_size doesn't not update
     model = Transformer(config).cuda()
-
-    wandb.init(project = "Transformer_training", config = config_dict)
-    wandb.watch(model, log="all")
-
     opitmizer = Scheduler(Adam(model.parameters(), betas=(0.9,0.98), eps= 10e-9), config)
-
     Dataset = Wmt14Handler(tokenizer, config, "de-en").get_wmt14()
     train_loader = DataLoader(Dataset["train"], batch_size= config.batch_size, shuffle= config.shuffle)
     val_loader = DataLoader(Dataset["validation"], batch_size= config.batch_size, shuffle= config.shuffle)
 
+    wandb.init(project = "Transformer_training", config = config.__dict__)
+    wandb.watch(model, log="all")
+
     train(model, train_loader,val_loader, opitmizer, config)
-
-
-
