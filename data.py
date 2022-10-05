@@ -1,4 +1,4 @@
-from datasets import load_dataset
+from datasets import load_dataset,load_from_disk
 from transformers import AutoTokenizer
 from tokenizers.processors import TemplateProcessing
 
@@ -24,10 +24,13 @@ class Wmt14Handler():
         return model_inputs
 
     def get_wmt14(self):
-        dataset = load_dataset("wmt14", self.language_split)
-        tokenized_dataset = dataset.map(self.preprocess_function, batched= True)
+        if self.config.local_data_path:
+            tokenized_dataset = load_from_disk(self.config.local_data_path)
+        else:
+            dataset = load_dataset("wmt14", self.language_split)
+            tokenized_dataset = dataset.map(self.preprocess_function, batched= True)
+            tokenized_dataset = tokenized_dataset.remove_columns("translation")
         tokenized_dataset = tokenized_dataset.with_format("torch")
-        tokenized_dataset = tokenized_dataset.remove_columns("translation")
         print("Loaded Data!")
         return tokenized_dataset
     
