@@ -8,7 +8,7 @@ class MultiHeadAttentionFAST(nn.Module):
     """
     Calculate all attention heads using a single Dense layer (Original implementation)
     """
-    def __init__(self, config, masked_attention = False):
+    def __init__(self, config):
         super().__init__()
         assert config.hidden_size % config.num_attention_heads == 0
         self.q_layer = nn.Linear(config.hidden_size, config.hidden_size, bias=False) 
@@ -19,24 +19,16 @@ class MultiHeadAttentionFAST(nn.Module):
 
         self.num_heads = config.num_attention_heads 
         self.head_dim = config.hidden_size // config.num_attention_heads
-        self.masked_attention = masked_attention
     
     def forward(self, x, mask, kv = None):
-        # In the case of the Encoder-Decoder attention layer k,v are set by the Encoder ouput
+        #In the case of the Encoder-Decoder attention layer k,v are set by the Encoder ouput
         Q = self.split_heads(self.q_layer(x))
         K = self.split_heads(self.k_layer(kv if torch.is_tensor(kv) else x)).transpose(2,3)
-        V = self.split_heads(self.v_layer(kv if torch.is_tensor(kv) else x))
+        V = self.split_heads(self.v_layer(kv if torch.is_tensor(kv) else x)) # [batch, num_heads, seq_len, hidden_size // num_heads]
 
         scaled_attention_scores = torch.matmul(Q,K) / sqrt(Q.size(-1))  # [batch, num_heads,seq_len, seq_len]
-        #print(f"Attention scores before masking {scaled_attention_scores}")
         scaled_attention_scores = scaled_attention_scores.masked_fill(mask == 0, float("-inf"))
-        #print(f"Attention scores after masking {scaled_attention_scores}")
-        
         attention_weights = nn.functional.softmax(scaled_attention_scores, dim= -1)
-       # print(f"Mask {mask}")
-        #print(f"Shape attention weigths {attention_weights.shape}")
-        #print(f"attention weights {attention_weights}")
-        #print("########")
         attention_results = self.combine_heads(torch.matmul(attention_weights, V)) # [batch, num_heads, seq_len, head_dim] -> [batch, seq_len, embed_dim]
         attention_results = self.final_lin(attention_results)
         attention_results = self.drop(attention_results)
@@ -44,10 +36,10 @@ class MultiHeadAttentionFAST(nn.Module):
 
     def split_heads(self, x):
         seperate_heads = torch.reshape(x, x.shape[:-1]+(self.num_heads, self.head_dim))
-        return seperate_heads.permute([0,2,1,3])
-    
+        return seperate_heads.transpose(2,1)
+
     def combine_heads(self,x):
-        x = x.permute([0,2,1,3])
+        x = x.transpose(1,2) #.permute([0,2,1,3])
         a,b = x.shape[-2:]
         return torch.reshape(x, x.shape[:-2]+(a*b,))
 
