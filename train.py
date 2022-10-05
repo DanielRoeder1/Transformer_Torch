@@ -77,8 +77,6 @@ def train_epoch(model, train_loader, val_loader, optimizer, config):
 
 def calc_loss(pred, target, pad_idx):
     greedy_prediction = pred.argmax(2)
-    print(f"pred ids {greedy_prediction}")
-    print(f"Target ids {target}")
     # Num_words_correct / Num_words not padding in batch
     accuracy = (greedy_prediction.eq(target).masked_select(target != config.pad_idx).sum() / (target != config.pad_idx).sum()).item()
     loss = cross_entropy(pred.permute([0,2,1]), target, ignore_index= pad_idx)
