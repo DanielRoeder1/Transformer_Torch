@@ -30,6 +30,7 @@ class Wmt14Handler():
             dataset = load_dataset("wmt14", self.language_split)
             tokenized_dataset = dataset.map(self.preprocess_function, batched= True)
             tokenized_dataset = tokenized_dataset.remove_columns("translation")
+            tokenized_dataset.save_to_disk("dataset.hf")
         tokenized_dataset = tokenized_dataset.with_format("torch")
         print("Loaded Data!")
         return tokenized_dataset

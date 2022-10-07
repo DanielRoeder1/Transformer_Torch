@@ -21,7 +21,7 @@ def validate(model, loader, config):
     av = AverageMeter()
     model.eval()
 
-    for batch_idx , data in enumerate(loader):
+    for data in loader:
         src_input, trgt_seq = data["input_ids"].cuda(), data["labels"].cuda()
         trgt_input = trgt_seq[:,:-1]
         trgt_label = trgt_seq[:,1:]
