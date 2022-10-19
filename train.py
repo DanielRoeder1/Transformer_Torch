@@ -107,8 +107,7 @@ class Scheduler():
     def zero_grad(self):
         self.optimizer.zero_grad()
     
-    def step_and_update(self, loss):
-        self.plateau_check(loss)
+    def step_and_update(self):
         self.update_learning_rate()
         self.optimizer.step()
 
@@ -116,7 +115,8 @@ class Scheduler():
         if loss > self.best_loss * (1 - self.plateau_threshold):
             self.plateau_counter+=1
         else:
-            self.plateau_counter = 0 
+            self.plateau_counter = 0
+            self.best_loss = loss 
         
         if self.plateau_counter >= self.patience:
             print(f"!!! Reducing lr by a factor of {self.plateau_factor}, current scale: {self.lr_scale} !!!")

@@ -10,7 +10,7 @@
     "vocab_size" : 0,
     "pad_idx": 0,
     "warmup_steps": 4000,
-    "lr_scale": 1,
+    "lr_scale": 3,
     
     "batch_size": 256,
     "train_epochs":10,
@@ -23,6 +23,6 @@
     "best_val_loss": 1e10,
 
     "plateau_factor": 0.5,
-    "patience": 2000,
+    "patience": 2,
     "plateau_threshold": 1e-2
 }
