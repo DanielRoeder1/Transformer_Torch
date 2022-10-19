@@ -87,21 +87,42 @@ class Scheduler():
     """
     Learning rate scheduler as described in publication
     Code inspired by: https://github.com/jadore801120/attention-is-all-you-need-pytorch.git
+    Added functionality of reducing lr on plateau
     """
     def __init__(self, optimizer, config) -> None:
         self.optimizer = optimizer
         self.hidden_size = config.hidden_size
         self.warmup_steps = config.warmup_steps
         self.lr_scale = config.lr_scale
-
         self.n_steps = 0 
-    
+
+        self.plateau_factor = config.plateau_factor
+        self.patience = config.patience
+        self.plateau_threshold = config.plateau_threshold
+        #self.min_lr_scale = config.min_lr_scale
+
+        self.plateau_counter = 0
+        self.best_loss = 1e10
+
     def zero_grad(self):
         self.optimizer.zero_grad()
     
-    def step_and_update(self):
+    def step_and_update(self, loss):
+        self.plateau_check(loss)
         self.update_learning_rate()
         self.optimizer.step()
+
+    def plateau_check(self,loss):
+        if loss > self.best_loss * (1 - self.plateau_threshold):
+            self.plateau_counter+=1
+        else:
+            self.plateau_counter = 0 
+        
+        if self.plateau_counter >= self.patience:
+            print(f"!!! Reducing lr by a factor of {self.plateau_factor}, current scale: {self.lr_scale} !!!")
+            self.lr_scale *= self.plateau_factor
+            self.plateau_counter = 0
+
 
     def update_learning_rate(self):
         self.n_steps += 1

@@ -20,5 +20,9 @@
     "validate_every": 5000,
     "save_path": "/content/drive/MyDrive/Transformer_Training",
     "local_data_path": "/content/Transformer_Torch/content/drive/MyDrive/Transformer_Training/wmt14.hf",
-    "best_val_loss": 1e10
+    "best_val_loss": 1e10,
+
+    "plateau_factor": 0.5,
+    "patience": 2000,
+    "plateau_threshold": 1e-2
 }
