@@ -73,9 +73,9 @@ class PositionalEmbedding(nn.Module):
         pos = np.arange(config.seq_len)[:, np.newaxis]
         angles =  pos * (1  / np.power(10000., (2*i) / np.sqrt(config.hidden_size)))
         angles[:,0::2] = np.sin(angles[:,0::2])
-        angles[:,1::2] = np.sin(angles[:,1::2])
+        angles[:,1::2] = np.cos(angles[:,1::2])
         # Register as buffer to ensure its moved to gpu alongside model
         self.register_buffer("pos_enc", torch.from_numpy(angles).unsqueeze(0).float())
 
     def forward(self):
-        return self.pos_enc  
+        return self.pos_enc.clone().detach() 

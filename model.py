@@ -110,7 +110,7 @@ class EmbeddingBlock(nn.Module):
     def __init__(self, config) -> None:
         super().__init__()
 
-        self.token_embeddings = nn.Embedding(config.vocab_size, config.hidden_size) 
+        self.token_embeddings = nn.Embedding(config.vocab_size, config.hidden_size, padding_idx = config.pad_idx) 
         self.positional_embeddings = PositionalEmbedding(config)
         self.drop = nn.Dropout(config.dropout_prob)
 
